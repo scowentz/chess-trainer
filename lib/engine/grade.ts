@@ -20,9 +20,14 @@ export interface GradeResult {
   lossCp: number
 }
 
-/** Lines are ordered best-first (index 0 = engine's top choice per MultiPV ordering). */
+/**
+ * Centipawn gap between the best and second-best lines (best-first ordering).
+ * With fewer than two lines we have no evidence of how far ahead the top move is,
+ * so we return 0 — a best move then classifies as 'best' rather than over-rewarding
+ * it as 'great' purely because no second line was available.
+ */
 function gapCp(lines: { eval: { type: 'cp' | 'mate'; value: number } }[]): number {
-  if (lines.length < 2) return Infinity
+  if (lines.length < 2) return 0
   return stmScoreCp(lines[0].eval) - stmScoreCp(lines[1].eval)
 }
 

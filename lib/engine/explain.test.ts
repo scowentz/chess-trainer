@@ -101,4 +101,35 @@ describe('explain', () => {
     })
     expect(r.facts.missedMate).toBe(true)
   })
+
+  it('does NOT flag badCapture when the capture nets material despite a recapture (M3)', () => {
+    // White knight on f4 takes the black queen on d5; the queen is defended by the
+    // c6 pawn, so the knight is recaptured — but the player still nets +580 (queen
+    // for knight). A naive "opponent can recapture" check would wrongly flag this.
+    const r = explain({
+      fenBefore: '4k3/8/2p5/3q4/5N2/8/8/4K3 w - - 0 1',
+      playedMove: 'f4d5', // Nxd5, winning the queen
+      bestMove: 'f4d5',
+      evalBefore: { type: 'cp', value: 0 },
+      evalAfter: { type: 'cp', value: 580 },
+      moveClass: 'good',
+      mover: 'white',
+    })
+    expect(r.facts.badCapture).toBe(false)
+  })
+
+  it('flags badCapture when the recapture loses material on balance (M3)', () => {
+    // White rook takes a black pawn on d5 that is defended by the c6 pawn:
+    // rook for pawn nets -400.
+    const r = explain({
+      fenBefore: '8/8/2p5/3p4/8/3R4/8/4K2k w - - 0 1',
+      playedMove: 'd3d5', // Rxd5, a losing capture
+      bestMove: 'd3d4',
+      evalBefore: { type: 'cp', value: 0 },
+      evalAfter: { type: 'cp', value: -400 },
+      moveClass: 'mistake',
+      mover: 'white',
+    })
+    expect(r.facts.badCapture).toBe(true)
+  })
 })

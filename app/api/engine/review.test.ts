@@ -7,7 +7,11 @@ import { getEngine } from '@/lib/engine'
 import { POST as reviewPost } from './review/route'
 
 function req(body: unknown): Request {
-  return new Request('http://test', { method: 'POST', body: JSON.stringify(body) })
+  return new Request('http://test', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
 }
 
 describe('POST /api/engine/review', () => {
@@ -46,18 +50,15 @@ describe('POST /api/engine/review', () => {
     })
     vi.mocked(getEngine).mockReturnValue({ evaluate: explainEvaluate } as never)
     const res = await reviewPost(
-      new Request('http://x', {
-        method: 'POST',
-        body: JSON.stringify({
-          positions: [
-            {
-              fenBefore: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-              fenAfter: 'rnbqkbnr/pppppppp/8/8/8/4P3/PPPP1PPP/RNBQKBNR b KQkq - 0 1',
-              mover: 'white',
-              uci: 'e2e4',
-            },
-          ],
-        }),
+      req({
+        positions: [
+          {
+            fenBefore: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+            fenAfter: 'rnbqkbnr/pppppppp/8/8/8/4P3/PPPP1PPP/RNBQKBNR b KQkq - 0 1',
+            mover: 'white',
+            uci: 'e2e4',
+          },
+        ],
       }),
     )
     const data = await res.json()

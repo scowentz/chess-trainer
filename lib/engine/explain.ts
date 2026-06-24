@@ -67,13 +67,19 @@ export function sameUciMove(a: string, b: string): boolean {
 /** Most valuable piece of `owner` that the side-to-move can win by capture. */
 function worstHung(chess: Chess, owner: 'w' | 'b'): { square: string; piece: string } | null {
   let worst: { square: string; piece: string; value: number } | null = null
-  for (const sq of ALL_SQUARES) {
-    const p = chess.get(sq as Square)
-    if (!p || p.color !== owner) continue
-    const gain = seeGain(chess, sq)
-    if (gain > 0) {
-      const value = PIECE_VALUE[p.type]
-      if (!worst || value > worst.value) worst = { square: sq, piece: PIECE_NAME[p.type], value }
+  // One board() call instead of 64 get() calls; seeGain is only invoked for the
+  // owner's pieces and short-circuits when they have no attackers.
+  for (const row of chess.board()) {
+    for (const cell of row) {
+      if (!cell || cell.color !== owner) continue
+      const value = PIECE_VALUE[cell.type]
+      // A queen is the most valuable hangable piece; nothing can beat it, so once a
+      // hung queen is found we can stop scanning.
+      if (worst && value <= worst.value) continue
+      if (seeGain(chess, cell.square) > 0) {
+        worst = { square: cell.square, piece: PIECE_NAME[cell.type], value }
+        if (cell.type === 'q') return { square: worst.square, piece: worst.piece }
+      }
     }
   }
   return worst ? { square: worst.square, piece: worst.piece } : null
@@ -198,11 +204,16 @@ export function explain(input: ExplainInput): Explanation {
   }
   if (playedObj && cAfter) {
     facts.hung = worstHung(cAfter, moverC)
-    if (
-      (playedObj.flags.includes('c') || playedObj.flags.includes('e')) &&
-      seeGain(cAfter, playedObj.to) > 0
-    ) {
-      facts.badCapture = true
+    if (playedObj.captured) {
+      // Net the value won by the capture against what the opponent recovers via the
+      // optimal recapture sequence. A "bad capture" is one that loses material on
+      // balance — winning a queen for a knight is not bad just because the knight
+      // gets recaptured.
+      const wonValue = PIECE_VALUE[playedObj.captured]
+      const opponentRecapture = Math.max(0, seeGain(cAfter, playedObj.to))
+      if (wonValue - opponentRecapture < 0) {
+        facts.badCapture = true
+      }
     }
   }
 
