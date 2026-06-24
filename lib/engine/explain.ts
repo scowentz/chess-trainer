@@ -48,6 +48,22 @@ function uciToMove(uci: string): { from: string; to: string; promotion?: string 
   return { from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] }
 }
 
+/**
+ * Two UCI moves are "the same move" when:
+ * - Their from+to squares match, AND
+ * - When BOTH carry a promotion char, those chars also match.
+ * If only one side carries a promotion char, from+to equality is sufficient
+ * (the bare-4-char form represents the same underlying move).
+ * This preserves the underpromotion distinction when both sides specify it.
+ */
+export function sameUciMove(a: string, b: string): boolean {
+  if (a.slice(0, 4) !== b.slice(0, 4)) return false
+  const aPromo = a[4]
+  const bPromo = b[4]
+  if (aPromo && bPromo) return aPromo === bPromo
+  return true
+}
+
 /** Most valuable piece of `owner` that the side-to-move can win by capture. */
 function worstHung(chess: Chess, owner: 'w' | 'b'): { square: string; piece: string } | null {
   let worst: { square: string; piece: string; value: number } | null = null
@@ -200,7 +216,7 @@ export function explain(input: ExplainInput): Explanation {
   if (
     input.evalBefore?.type === 'mate' &&
     input.evalBefore.value > 0 &&
-    input.playedMove !== input.bestMove
+    !sameUciMove(input.playedMove, input.bestMove)
   ) {
     facts.missedMate = true
   }

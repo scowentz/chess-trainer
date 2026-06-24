@@ -3,9 +3,8 @@
 import { useMemo, useRef, useState, useCallback } from 'react'
 import { Chess } from 'chess.js'
 import { BLUNDER_WARNING_CP } from '@/lib/engine/constants'
-import { classifyMove, moverCpLoss, stmScoreCp } from '@/lib/engine/classify'
 import type { MoveClass } from '@/lib/engine/classify'
-import { explain } from '@/lib/engine/explain'
+import { gradeMove } from '@/lib/engine/grade'
 import type { Color, BestMoveResult } from '@/lib/engine/types'
 
 type Status = 'playing' | 'gameover'
@@ -95,47 +94,32 @@ export function useChessGame(opts: { playerColor: Color; skill: number; fetchImp
 
       const fenBefore = game.fen()
       const probe = new Chess(fenBefore)
+      let probeMove
       try {
-        probe.move({ from, to, promotion: 'q' })
+        probeMove = probe.move({ from, to, promotion: 'q' })
       } catch {
         return false // illegal move
       }
       const fenAfter = probe.fen()
+
+      // Build the full played UCI including promotion suffix when the move was a promotion.
+      // chess.js sets flags 'p' (or 'cp' for capture-promotion) when a promotion occurred.
+      const isPromotion = probeMove.flags.includes('p')
+      const playedUci = from + to + (isPromotion ? (probeMove.promotion ?? 'q') : '')
 
       const [beforeEval, afterEval] = await Promise.all([
         post('/api/engine/evaluate', { fen: fenBefore, multipv: 2 }),
         post('/api/engine/evaluate', { fen: fenAfter }),
       ])
 
-      const lossCp =
-        beforeEval.eval && afterEval.eval
-          ? moverCpLoss({
-              before: beforeEval.eval,
-              beforeSideToMove: opts.playerColor,
-              after: afterEval.eval,
-              afterSideToMove: engineColor,
-              mover: opts.playerColor,
-            })
-          : 0
-
-      const lines = beforeEval.lines?.length
-        ? beforeEval.lines
-        : beforeEval.eval
-          ? [{ move: beforeEval.move, eval: beforeEval.eval }]
-          : []
-      const playedIsBest = lines.length > 0 && lines[0].move.slice(0, 4) === from + to
-      const gapToSecondBestCp =
-        lines.length < 2 ? Infinity : stmScoreCp(lines[0].eval) - stmScoreCp(lines[1].eval)
-      const moveClass = classifyMove({ lossCp, playedIsBest, gapToSecondBestCp })
-      const text = explain({
+      const { classification: moveClass, explanation: text, lossCp } = gradeMove({
+        before: beforeEval,
+        after: afterEval,
         fenBefore,
-        playedMove: from + to,
-        bestMove: lines.length ? lines[0].move : beforeEval.move,
-        evalBefore: beforeEval.eval,
-        evalAfter: afterEval.eval,
-        moveClass,
+        playedUci,
         mover: opts.playerColor,
-      }).text
+      })
+
       pendingFeedbackRef.current = { moveClass, text }
 
       if (lossCp >= BLUNDER_WARNING_CP) {

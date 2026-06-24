@@ -71,4 +71,34 @@ describe('explain', () => {
     expect(r.facts.hung).toBeNull()
     expect(r.text.toLowerCase()).toContain('best')
   })
+
+  it('does NOT flag missedMate when bare-4-char played matches engine best-with-promotion (I1 fix)', () => {
+    // White has a forced mate via pawn promotion: best move is e7e8q.
+    // The hook sends playedMove without promotion suffix: 'e7e8'.
+    // These are the same underlying move — missedMate must be false.
+    const r = explain({
+      fenBefore: '4k3/4P3/4K3/8/8/8/8/8 w - - 0 1',
+      playedMove: 'e7e8',   // bare form, no promotion char (as the hook sends)
+      bestMove: 'e7e8q',    // full UCI from engine
+      evalBefore: { type: 'mate', value: 1 },
+      evalAfter: { type: 'cp', value: 0 },
+      moveClass: 'best',
+      mover: 'white',
+    })
+    expect(r.facts.missedMate).toBe(false)
+  })
+
+  it('still flags missedMate when played and best share from+to but differ in promotion piece (underpromotion)', () => {
+    // Both sides specify a promotion piece; different pieces = different moves.
+    const r = explain({
+      fenBefore: '4k3/4P3/4K3/8/8/8/8/8 w - - 0 1',
+      playedMove: 'e7e8r',  // played rook-promotion
+      bestMove: 'e7e8q',    // best was queen-promotion (forced mate)
+      evalBefore: { type: 'mate', value: 1 },
+      evalAfter: { type: 'cp', value: 0 },
+      moveClass: 'blunder',
+      mover: 'white',
+    })
+    expect(r.facts.missedMate).toBe(true)
+  })
 })
