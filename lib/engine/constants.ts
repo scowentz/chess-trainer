@@ -12,3 +12,10 @@ export const CLASSIFY_THRESHOLDS = {
 
 /** Centipawn-equivalent magnitude used when converting mate scores to a number. */
 export const MATE_SCORE = 100000
+
+/**
+ * Minimum SEE gain (cp) required to report a piece as "hanging".
+ * A value of 50 filters out near-equal trades (e.g. bishop vs knight = 10 cp)
+ * that look defended to a human but technically favour the attacker by a tiny margin.
+ */
+export const HANGING_THRESHOLD_CP = 50

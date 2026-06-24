@@ -1,6 +1,7 @@
 import { Chess } from 'chess.js'
 import type { Square } from 'chess.js'
 import { seeGain, PIECE_VALUE } from './see'
+import { HANGING_THRESHOLD_CP } from './constants'
 import type { EngineEval, Color } from './types'
 import type { MoveClass } from './classify'
 
@@ -76,7 +77,7 @@ function worstHung(chess: Chess, owner: 'w' | 'b'): { square: string; piece: str
       // A queen is the most valuable hangable piece; nothing can beat it, so once a
       // hung queen is found we can stop scanning.
       if (worst && value <= worst.value) continue
-      if (seeGain(chess, cell.square) > 0) {
+      if (seeGain(chess, cell.square) >= HANGING_THRESHOLD_CP) {
         worst = { square: cell.square, piece: PIECE_NAME[cell.type], value }
         if (cell.type === 'q') return { square: worst.square, piece: worst.piece }
       }

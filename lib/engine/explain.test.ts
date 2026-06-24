@@ -132,4 +132,20 @@ describe('explain', () => {
     })
     expect(r.facts.badCapture).toBe(true)
   })
+
+  it('does NOT flag hung when SEE gain is below threshold (near-equal trade, e.g. Ne4 vs Bc3 defended by Pd2)', () => {
+    // Ne4 (320) can take Bc3 (330) with Pd2 recapturing (320). Net gain for black = 10 cp.
+    // That 10 cp is below HANGING_THRESHOLD_CP (50), so the bishop should NOT be reported as hung.
+    // Position after white's king move: black to move, Ne4 eyes Bc3, Pd2 defends.
+    const r = explain({
+      fenBefore: '4k3/8/8/8/4n3/2B5/3P4/4K3 w - - 0 1',
+      playedMove: 'e1e2',
+      bestMove: 'e1f1',
+      evalBefore: { type: 'cp', value: 0 },
+      evalAfter: { type: 'cp', value: -50 },
+      moveClass: 'inaccuracy',
+      mover: 'white',
+    })
+    expect(r.facts.hung).toBeNull()
+  })
 })
