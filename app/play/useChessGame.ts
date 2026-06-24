@@ -3,7 +3,9 @@
 import { useMemo, useRef, useState, useCallback } from 'react'
 import { Chess } from 'chess.js'
 import { BLUNDER_WARNING_CP } from '@/lib/engine/constants'
-import { moverCpLoss } from '@/lib/engine/classify'
+import { classifyMove, moverCpLoss, stmScoreCp } from '@/lib/engine/classify'
+import type { MoveClass } from '@/lib/engine/classify'
+import { explain } from '@/lib/engine/explain'
 import type { Color, BestMoveResult } from '@/lib/engine/types'
 
 type Status = 'playing' | 'gameover'
@@ -30,6 +32,9 @@ export function useChessGame(opts: { playerColor: Color; skill: number; fetchImp
   const [pendingBlunder, setPendingBlunder] = useState<PendingBlunder | null>(null)
   const [hint, setHint] = useState<{ piece: string | null; move: string | null }>({ piece: null, move: null })
   const hintStage = useRef(0)
+  const [lastMoveClass, setLastMoveClass] = useState<MoveClass | null>(null)
+  const [lastMoveExplanation, setLastMoveExplanation] = useState<string | null>(null)
+  const pendingFeedbackRef = useRef<{ moveClass: MoveClass; text: string } | null>(null)
 
   const engineColor: Color = opts.playerColor === 'white' ? 'black' : 'white'
 
@@ -72,6 +77,12 @@ export function useChessGame(opts: { playerColor: Color; skill: number; fetchImp
       game.move({ from, to, promotion: 'q' })
       setHint({ piece: null, move: null })
       hintStage.current = 0
+      const fb = pendingFeedbackRef.current
+      if (fb) {
+        setLastMoveClass(fb.moveClass)
+        setLastMoveExplanation(fb.text)
+        pendingFeedbackRef.current = null
+      }
       sync()
     },
     [sync],
@@ -92,7 +103,7 @@ export function useChessGame(opts: { playerColor: Color; skill: number; fetchImp
       const fenAfter = probe.fen()
 
       const [beforeEval, afterEval] = await Promise.all([
-        post('/api/engine/evaluate', { fen: fenBefore }),
+        post('/api/engine/evaluate', { fen: fenBefore, multipv: 2 }),
         post('/api/engine/evaluate', { fen: fenAfter }),
       ])
 
@@ -106,6 +117,26 @@ export function useChessGame(opts: { playerColor: Color; skill: number; fetchImp
               mover: opts.playerColor,
             })
           : 0
+
+      const lines = beforeEval.lines?.length
+        ? beforeEval.lines
+        : beforeEval.eval
+          ? [{ move: beforeEval.move, eval: beforeEval.eval }]
+          : []
+      const playedIsBest = lines.length > 0 && lines[0].move.slice(0, 4) === from + to
+      const gapToSecondBestCp =
+        lines.length < 2 ? Infinity : stmScoreCp(lines[0].eval) - stmScoreCp(lines[1].eval)
+      const moveClass = classifyMove({ lossCp, playedIsBest, gapToSecondBestCp })
+      const text = explain({
+        fenBefore,
+        playedMove: from + to,
+        bestMove: lines.length ? lines[0].move : beforeEval.move,
+        evalBefore: beforeEval.eval,
+        evalAfter: afterEval.eval,
+        moveClass,
+        mover: opts.playerColor,
+      }).text
+      pendingFeedbackRef.current = { moveClass, text }
 
       if (lossCp >= BLUNDER_WARNING_CP) {
         const blunder = { from, to, lossCp }
@@ -153,12 +184,26 @@ export function useChessGame(opts: { playerColor: Color; skill: number; fetchImp
       result,
       pendingBlunder,
       hint,
+      lastMoveClass,
+      lastMoveExplanation,
       tryUserMove,
       confirmPendingMove,
       cancelPendingMove,
       requestHint,
       game: gameRef.current,
     }),
-    [fen, status, result, pendingBlunder, hint, tryUserMove, confirmPendingMove, cancelPendingMove, requestHint],
+    [
+      fen,
+      status,
+      result,
+      pendingBlunder,
+      hint,
+      lastMoveClass,
+      lastMoveExplanation,
+      tryUserMove,
+      confirmPendingMove,
+      cancelPendingMove,
+      requestHint,
+    ],
   )
 }
