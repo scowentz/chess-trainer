@@ -1,4 +1,4 @@
-import type { Chess } from 'chess.js'
+import type { Chess, Square } from 'chess.js'
 
 export const PIECE_VALUE: Record<'p' | 'n' | 'b' | 'r' | 'q' | 'k', number> = {
   p: 100,
@@ -17,13 +17,13 @@ export const PIECE_VALUE: Record<'p' | 'n' | 'b' | 'r' | 'q' | 'k', number> = {
  */
 export function seeGain(chess: Chess, target: string): number {
   const stm = chess.turn()
-  const occupant = chess.get(target)
+  const occupant = chess.get(target as Square)
   if (!occupant) return 0
-  const attackerSqs = chess.attackers(target, stm)
+  const attackerSqs = chess.attackers(target as Square, stm)
   if (!attackerSqs.length) return 0
   const capturedVal = PIECE_VALUE[occupant.type]
   const ordered = [...attackerSqs].sort(
-    (a, b) => PIECE_VALUE[chess.get(a)!.type] - PIECE_VALUE[chess.get(b)!.type],
+    (a, b) => PIECE_VALUE[chess.get(a as Square)!.type] - PIECE_VALUE[chess.get(b as Square)!.type],
   )
   for (const from of ordered) {
     try {

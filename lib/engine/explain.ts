@@ -1,4 +1,5 @@
 import { Chess } from 'chess.js'
+import type { Square } from 'chess.js'
 import { seeGain, PIECE_VALUE } from './see'
 import type { EngineEval, Color } from './types'
 import type { MoveClass } from './classify'
@@ -51,7 +52,7 @@ function uciToMove(uci: string): { from: string; to: string; promotion?: string 
 function worstHung(chess: Chess, owner: 'w' | 'b'): { square: string; piece: string } | null {
   let worst: { square: string; piece: string; value: number } | null = null
   for (const sq of ALL_SQUARES) {
-    const p = chess.get(sq)
+    const p = chess.get(sq as Square)
     if (!p || p.color !== owner) continue
     const gain = seeGain(chess, sq)
     if (gain > 0) {
@@ -95,13 +96,13 @@ function bestMoveFacts(
   const forkerVal = PIECE_VALUE[c.get(forkerSq)!.type]
   const targets: { label: string; value: number }[] = []
   for (const sq of ALL_SQUARES) {
-    const p = c.get(sq)
+    const p = c.get(sq as Square)
     if (!p || p.color !== enemy) continue
     const valuable = p.type === 'k' || PIECE_VALUE[p.type] >= PIECE_VALUE.n
     if (!valuable) continue
-    if (c.attackers(sq, mover).includes(forkerSq)) {
+    if (c.attackers(sq as Square, mover).includes(forkerSq)) {
       // count only pieces we'd actually win (more valuable than the forker, or undefended)
-      const undefended = c.attackers(sq, enemy).length === 0
+      const undefended = c.attackers(sq as Square, enemy).length === 0
       if (p.type === 'k' || undefended || PIECE_VALUE[p.type] > forkerVal) {
         targets.push({ label: `${PIECE_NAME[p.type]} on ${sq}`, value: PIECE_VALUE[p.type] })
       }

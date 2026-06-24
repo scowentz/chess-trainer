@@ -87,7 +87,9 @@ export function ChessGame() {
         />
       </div>
       <HintButton hint={game.hint} onHint={game.requestHint} />
-      <MoveBadge moveClass={game.lastMoveClass} explanation={game.lastMoveExplanation} />
+      {game.status === 'playing' && (
+        <MoveBadge moveClass={game.lastMoveClass} explanation={game.lastMoveExplanation} />
+      )}
 
       {game.status === 'gameover' && (
         <div>

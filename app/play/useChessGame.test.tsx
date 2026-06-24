@@ -76,7 +76,7 @@ describe('useChessGame', () => {
       return { json: async () => ({ move: 'e7e5', eval: null, pv: [] }) } as Response
     })
 
-    const { result } = renderHook(() => useChessGame({ playerColor: 'white', skill: 8, fetchImpl }))
+    const { result } = renderHook(() => useChessGame({ playerColor: 'white', skill: 8, fetchImpl: fetchImpl as unknown as typeof fetch }))
     await act(async () => {
       await result.current.tryUserMove('e2', 'e4')
     })

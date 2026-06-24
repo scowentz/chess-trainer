@@ -164,6 +164,7 @@ export function useChessGame(opts: { playerColor: Color; skill: number; fetchImp
   const cancelPendingMove = useCallback(() => {
     setPendingBlunder(null)
     pendingBlunderRef.current = null
+    pendingFeedbackRef.current = null
   }, [])
 
   const requestHint = useCallback(async () => {

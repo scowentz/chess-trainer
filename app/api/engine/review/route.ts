@@ -12,6 +12,7 @@ interface Position {
   uci: string
 }
 
+/** Lines are ordered best-first (index 0 = engine's top choice per MultiPV ordering). */
 function gapCp(lines: { eval: { type: 'cp' | 'mate'; value: number } }[]): number {
   if (lines.length < 2) return Infinity
   return stmScoreCp(lines[0].eval) - stmScoreCp(lines[1].eval)
