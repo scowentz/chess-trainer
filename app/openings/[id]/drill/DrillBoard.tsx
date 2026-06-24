@@ -1,8 +1,9 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { Chessboard } from 'react-chessboard'
 import { useDrill } from './useDrill'
+import { buildNodeMap } from '@/lib/openings/drill-session'
 import type { DrillNode } from '@/lib/openings/drill-session'
 import type { Color } from '@/lib/engine/types'
 
@@ -18,11 +19,17 @@ export function DrillBoard({
   onReview: (fen: string, correct: boolean) => void
 }) {
   const drill = useDrill({ nodes, startFen, onReview })
+  const map = useMemo(() => buildNodeMap(nodes), [nodes])
+  const currentNode = map.get(drill.fen)
+
+  // Determine prompt state
+  const lineComplete = !currentNode
+  const opponentTurn = currentNode ? !currentNode.isTraineeTurn : false
 
   const onPieceDrop = useCallback(
     (from: string, to: string): boolean => {
       drill.tryMove(from, to)
-      return false // hook owns board state
+      return false
     },
     [drill],
   )
@@ -34,15 +41,31 @@ export function DrillBoard({
           position={drill.fen}
           onPieceDrop={onPieceDrop}
           boardOrientation={color}
+          arePiecesDraggable={!lineComplete && !opponentTurn}
           customBoardStyle={{ borderRadius: '6px' }}
           customDarkSquareStyle={{ backgroundColor: '#9a7a4d' }}
           customLightSquareStyle={{ backgroundColor: '#efd9b4' }}
         />
       </div>
-      {drill.correction && (
+
+      {/* Status / feedback */}
+      {lineComplete ? (
+        <div className="rounded-xl border border-brass/30 bg-brass/10 px-4 py-3 text-sm text-brass-bright">
+          Line complete — you know this one! ✓
+        </div>
+      ) : drill.correction ? (
         <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-          Off book. A book move here was{' '}
-          <span className="font-mono text-red-100">{drill.correction.join(' / ')}</span>.
+          Off book — a book move here was{' '}
+          <span className="font-mono text-red-100">{drill.correction.join(' / ')}</span>.{' '}
+          <span className="text-red-300">Try again from this position.</span>
+        </div>
+      ) : opponentTurn ? (
+        <div className="rounded-xl border border-line bg-surface/50 px-4 py-3 text-sm text-muted">
+          Opponent is responding…
+        </div>
+      ) : (
+        <div className="rounded-xl border border-line bg-surface/50 px-4 py-3 text-sm text-muted">
+          Your turn — play the book move.
         </div>
       )}
     </div>

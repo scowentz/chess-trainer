@@ -20,6 +20,50 @@ interface Review {
   explanation?: string
 }
 
+// ── material / captured-piece helpers ────────────────────────────────────────
+
+const STARTING_COUNTS: Record<string, number> = { p: 8, n: 2, b: 2, r: 2, q: 1 }
+const PIECE_POINTS: Record<string, number>    = { p: 1, n: 3, b: 3, r: 5, q: 9 }
+const PIECE_SYMBOLS: Record<string, string>   = {
+  wp: '♙', wn: '♘', wb: '♗', wr: '♖', wq: '♕',
+  bp: '♟', bn: '♞', bb: '♝', br: '♜', bq: '♛',
+}
+
+function computeMaterial(fen: string) {
+  const counts: Record<string, number> = {
+    wp: 0, wn: 0, wb: 0, wr: 0, wq: 0,
+    bp: 0, bn: 0, bb: 0, br: 0, bq: 0,
+  }
+  for (const ch of fen.split(' ')[0]) {
+    if (ch === '/' || /\d/.test(ch)) continue
+    const color = ch === ch.toUpperCase() ? 'w' : 'b'
+    const type  = ch.toLowerCase()
+    if (type in PIECE_POINTS) counts[color + type]++
+  }
+  const capturedByWhite: string[] = []
+  const capturedByBlack: string[] = []
+  for (const t of ['q', 'r', 'b', 'n', 'p']) {
+    for (let i = 0; i < STARTING_COUNTS[t] - counts['b' + t]; i++) capturedByWhite.push('b' + t)
+    for (let i = 0; i < STARTING_COUNTS[t] - counts['w' + t]; i++) capturedByBlack.push('w' + t)
+  }
+  const wp = capturedByWhite.reduce((s, p) => s + PIECE_POINTS[p[1]], 0)
+  const bp = capturedByBlack.reduce((s, p) => s + PIECE_POINTS[p[1]], 0)
+  return { capturedByWhite, capturedByBlack, advantage: wp - bp }
+}
+
+function CapturedRow({ pieces, advantage }: { pieces: string[]; advantage: number }) {
+  return (
+    <div className="flex h-6 items-center gap-px px-0.5">
+      {pieces.map((p, i) => (
+        <span key={i} className="text-[15px] leading-none text-muted select-none">{PIECE_SYMBOLS[p]}</span>
+      ))}
+      {advantage > 0 && (
+        <span className="ml-1.5 text-xs font-semibold text-muted">+{advantage}</span>
+      )}
+    </div>
+  )
+}
+
 function SoundToggle() {
   // Read persisted state after mount to avoid a hydration mismatch.
   const [muted, setMutedState] = useState(false)
@@ -126,6 +170,8 @@ export function ChessGame() {
     }
   }, [game, playerColor, skill])
 
+  const { capturedByWhite, capturedByBlack, advantage } = computeMaterial(game.fen)
+
   const lastMoveStyles = game.lastMove
     ? {
         [game.lastMove.from]: { background: 'rgba(205, 168, 99, 0.38)' },
@@ -153,6 +199,7 @@ export function ChessGame() {
         {/* Board column */}
         <div className="flex flex-col gap-4">
           <div className="rounded-2xl border border-line-bright bg-gradient-to-b from-[#2a2419] to-[#211c14] p-3 shadow-2xl sm:p-4">
+            <CapturedRow pieces={capturedByBlack} advantage={advantage < 0 ? -advantage : 0} />
             <Chessboard
               position={game.fen}
               onPieceDrop={onPieceDrop}
@@ -164,6 +211,7 @@ export function ChessGame() {
               customDarkSquareStyle={{ backgroundColor: '#9a7a4d' }}
               customLightSquareStyle={{ backgroundColor: '#efd9b4' }}
             />
+            <CapturedRow pieces={capturedByWhite} advantage={advantage > 0 ? advantage : 0} />
           </div>
           <StatusBar status={game.status} thinking={game.thinking} playerTurn={playerTurn} result={game.result} />
         </div>

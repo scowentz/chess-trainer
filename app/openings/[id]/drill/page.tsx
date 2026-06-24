@@ -23,21 +23,31 @@ function toNode(n: RawNode): DrillNode {
   }
 }
 
+const STARTING_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+
 export default function DrillPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const [nodes, setNodes] = useState<DrillNode[] | null>(null)
-  const [startFen, setStartFen] = useState<string>('')
+  const [startFen, setStartFen] = useState<string>(STARTING_FEN)
   const [color, setColor] = useState<Color>('white')
+  const [noDue, setNoDue] = useState(false)
 
   useEffect(() => {
     async function load() {
-      const detail = await fetch(`/api/openings/${id}`).then((r) => r.json())
-      const due = await fetch(`/api/openings/${id}/due`).then((r) => r.json())
+      const [detail, due] = await Promise.all([
+        fetch(`/api/openings/${id}`).then((r) => r.json()),
+        fetch(`/api/openings/${id}/due`).then((r) => r.json()),
+      ])
       setColor(detail.repertoire.color as Color)
-      setStartFen(detail.repertoire.start_fen)
-      setNodes((detail.nodes as RawNode[]).map(toNode))
-      // Begin from the first due card's fen if available.
-      if (due.nodes?.length) setStartFen(due.nodes[0].fen)
+      const allNodes = (detail.nodes as RawNode[]).map(toNode)
+      setNodes(allNodes)
+      if (due.nodes?.length) {
+        setStartFen(due.nodes[0].fen)
+      } else {
+        // No cards due — start from the beginning for free practice
+        setNoDue(true)
+        setStartFen(STARTING_FEN)
+      }
     }
     void load()
   }, [id])
@@ -55,7 +65,15 @@ export default function DrillPage({ params }: { params: Promise<{ id: string }> 
 
   return (
     <main className="mx-auto w-full max-w-2xl px-4 py-8">
-      <h1 className="mb-6 font-serif text-2xl font-semibold text-ink">Drill</h1>
+      <h1 className="mb-1 font-serif text-2xl font-semibold text-ink">Drill</h1>
+      {noDue && (
+        <p className="mb-4 text-sm text-muted">
+          No cards due — all caught up! Practicing from the start.
+        </p>
+      )}
+      {!noDue && nodes && (
+        <p className="mb-4 text-sm text-muted">Play the book moves from memory.</p>
+      )}
       {nodes ? (
         <DrillBoard nodes={nodes} startFen={startFen} color={color} onReview={onReview} />
       ) : (

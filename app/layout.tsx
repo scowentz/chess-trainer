@@ -1,5 +1,6 @@
 import './globals.css'
 import type { ReactNode } from 'react'
+import { NavBar } from './NavBar'
 
 export const metadata = {
   title: 'Chess Trainer',
@@ -14,7 +15,10 @@ export const viewport = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <NavBar />
+        {children}
+      </body>
     </html>
   )
 }
