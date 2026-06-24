@@ -57,6 +57,33 @@ describe('useChessGame', () => {
     expect(result.current.pendingBlunder?.lossCp).toBeGreaterThanOrEqual(150)
   })
 
+  it('sets lastMoveClass and explanation after a committed move', async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (typeof url === 'string' && url.includes('/api/engine/evaluate')) {
+        return {
+          json: async () => ({
+            move: 'e2e4',
+            eval: { type: 'cp', value: 20 },
+            pv: ['e2e4'],
+            lines: [
+              { move: 'e2e4', eval: { type: 'cp', value: 20 } },
+              { move: 'd2d4', eval: { type: 'cp', value: 18 } },
+            ],
+          }),
+        } as Response
+      }
+      // engine reply move
+      return { json: async () => ({ move: 'e7e5', eval: null, pv: [] }) } as Response
+    })
+
+    const { result } = renderHook(() => useChessGame({ playerColor: 'white', skill: 8, fetchImpl: fetchImpl as unknown as typeof fetch }))
+    await act(async () => {
+      await result.current.tryUserMove('e2', 'e4')
+    })
+    expect(result.current.lastMoveClass).not.toBeNull()
+    expect(typeof result.current.lastMoveExplanation).toBe('string')
+  })
+
   it('reveals hint progressively', async () => {
     const fetchImpl = makeFetch({
       '/api/engine/evaluate': { move: 'g1f3', eval: { type: 'cp', value: 20 }, pv: ['g1f3'] },

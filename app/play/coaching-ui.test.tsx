@@ -56,4 +56,22 @@ describe('ReviewPanel', () => {
     expect(screen.getByText(/blunder/i)).toBeInTheDocument()
     expect(screen.getByText(/g1f3/)).toBeInTheDocument()
   })
+
+  it('renders the explanation alongside each review label', () => {
+    render(
+      <ReviewPanel
+        reviews={[
+          {
+            ply: 1,
+            mover: 'white',
+            classification: 'blunder',
+            bestMove: 'd1d2',
+            explanation: 'You left your queen on d3 hanging.',
+          },
+        ]}
+      />,
+    )
+    expect(screen.getByText(/blunder/i)).toBeInTheDocument()
+    expect(screen.getByText(/queen on d3/i)).toBeInTheDocument()
+  })
 })

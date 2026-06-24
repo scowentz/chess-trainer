@@ -12,4 +12,6 @@ export interface BestMoveResult {
   eval: EngineEval | null
   /** Principal variation in UCI. */
   pv: string[]
+  /** Top-N lines (best first) when MultiPV > 1 was requested. */
+  lines?: { move: string; eval: EngineEval }[]
 }

@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server'
 import { getEngine } from '@/lib/engine'
-import { classifyMove, moverCpLoss } from '@/lib/engine/classify'
 import type { MoveClass } from '@/lib/engine/classify'
 import type { Color } from '@/lib/engine/types'
+import { gradeMove } from '@/lib/engine/grade'
 
 interface Position {
   fenBefore: string
   fenAfter: string
   mover: Color
+  uci: string
 }
 
 export async function POST(req: Request): Promise<Response> {
@@ -18,32 +19,35 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   const engine = getEngine()
-  const reviews: Array<{ ply: number; mover: Color; lossCp: number; classification: MoveClass; bestMove: string }> = []
+  const reviews: Array<{
+    ply: number
+    mover: Color
+    lossCp: number
+    classification: MoveClass
+    bestMove: string
+    explanation: string
+  }> = []
   try {
     for (let i = 0; i < positions.length; i++) {
       const pos = positions[i]
-      const afterSideToMove: Color = pos.mover === 'white' ? 'black' : 'white'
-      const before = await engine.evaluate(pos.fenBefore, { depth })
+      const before = await engine.evaluate(pos.fenBefore, { depth, multipv: 2 })
       const after = await engine.evaluate(pos.fenAfter, { depth })
 
-      // Guard against null evals (e.g. terminal positions): treat as zero loss.
-      const lossCp =
-        before.eval && after.eval
-          ? moverCpLoss({
-              before: before.eval,
-              beforeSideToMove: pos.mover,
-              after: after.eval,
-              afterSideToMove,
-              mover: pos.mover,
-            })
-          : 0
+      const { classification, explanation, lossCp } = gradeMove({
+        before,
+        after,
+        fenBefore: pos.fenBefore,
+        playedUci: pos.uci,
+        mover: pos.mover,
+      })
 
       reviews.push({
         ply: i + 1,
         mover: pos.mover,
         lossCp,
-        classification: classifyMove(lossCp),
+        classification,
         bestMove: before.move,
+        explanation,
       })
     }
   } catch {
