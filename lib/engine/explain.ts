@@ -187,7 +187,7 @@ export function explain(input: ExplainInput): Explanation {
   if (
     input.evalBefore?.type === 'mate' &&
     input.evalBefore.value > 0 &&
-    input.playedMove.slice(0, 4) !== input.bestMove.slice(0, 4)
+    input.playedMove !== input.bestMove
   ) {
     facts.missedMate = true
   }
