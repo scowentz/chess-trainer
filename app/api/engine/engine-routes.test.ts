@@ -45,4 +45,11 @@ describe('POST /api/engine/evaluate', () => {
     const res = await evalPost(req({}))
     expect(res.status).toBe(400)
   })
+
+  it('forwards multipv to the engine', async () => {
+    evaluate.mockResolvedValue({ move: 'e2e4', eval: { type: 'cp', value: 20 }, pv: ['e2e4'] })
+    const res = await evalPost(req({ fen: 'startpos', multipv: 2 }))
+    expect(res.status).toBe(200)
+    expect(evaluate).toHaveBeenCalledWith('startpos', { depth: undefined, multipv: 2 })
+  })
 })
