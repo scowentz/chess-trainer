@@ -115,9 +115,7 @@ export function useChessGame(opts: {
   const commit = useCallback(
     (from: string, to: string) => {
       const game = gameRef.current
-      const mv = game.move({ from, to, promotion: 'q' })
-      setLastMove({ from, to })
-      playSound(soundForMove(game, mv))
+      game.move({ from, to, promotion: 'q' })
       setHint({ piece: null, move: null })
       hintStage.current = 0
       const fb = pendingFeedbackRef.current
@@ -145,6 +143,11 @@ export function useChessGame(opts: {
         return false // illegal move
       }
       const fenAfter = probe.fen()
+
+      // Instant feedback: show the move on the board before analysis completes.
+      setFen(fenAfter)
+      setLastMove({ from, to })
+      playSound(soundForMove(probe, probeMove))
 
       // Build the full played UCI including promotion suffix when the move was a promotion.
       // chess.js sets flags 'p' (or 'cp' for capture-promotion) when a promotion occurred.
@@ -194,6 +197,9 @@ export function useChessGame(opts: {
     setPendingBlunder(null)
     pendingBlunderRef.current = null
     pendingFeedbackRef.current = null
+    // Revert the optimistic board update so the position snaps back.
+    setFen(gameRef.current.fen())
+    setLastMove(null)
   }, [])
 
   const requestHint = useCallback(async () => {
