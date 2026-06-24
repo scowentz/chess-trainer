@@ -8,6 +8,7 @@ import { BlunderModal } from './BlunderModal'
 import { HintButton } from './HintButton'
 import { StrengthSelector } from './StrengthSelector'
 import { ReviewPanel } from './ReviewPanel'
+import { MoveBadge } from './MoveBadge'
 import type { Color } from '@/lib/engine/types'
 
 interface Review {
@@ -15,6 +16,7 @@ interface Review {
   mover: string
   classification: string
   bestMove: string
+  explanation?: string
 }
 
 export function ChessGame() {
@@ -85,6 +87,7 @@ export function ChessGame() {
         />
       </div>
       <HintButton hint={game.hint} onHint={game.requestHint} />
+      <MoveBadge moveClass={game.lastMoveClass} explanation={game.lastMoveExplanation} />
 
       {game.status === 'gameover' && (
         <div>
