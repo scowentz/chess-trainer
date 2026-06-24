@@ -7,12 +7,15 @@ export function parseBestMove(line: string): string | null {
 
 export function parseInfoLine(
   line: string,
-): { depth?: number; eval?: EngineEval; pv?: string[] } | null {
+): { depth?: number; multipv?: number; eval?: EngineEval; pv?: string[] } | null {
   if (!line.startsWith('info ')) return null
-  const result: { depth?: number; eval?: EngineEval; pv?: string[] } = {}
+  const result: { depth?: number; multipv?: number; eval?: EngineEval; pv?: string[] } = {}
 
   const depthM = line.match(/\bdepth\s+(\d+)/)
   if (depthM) result.depth = parseInt(depthM[1], 10)
+
+  const mpvM = line.match(/\bmultipv\s+(\d+)/)
+  if (mpvM) result.multipv = parseInt(mpvM[1], 10)
 
   const cpM = line.match(/\bscore\s+cp\s+(-?\d+)/)
   const mateM = line.match(/\bscore\s+mate\s+(-?\d+)/)

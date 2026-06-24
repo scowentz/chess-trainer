@@ -22,4 +22,14 @@ describe('parseInfoLine', () => {
   it('returns null for non-info lines', () => {
     expect(parseInfoLine('bestmove e2e4')).toBeNull()
   })
+  it('parses the multipv index from an info line', () => {
+    const r = parseInfoLine('info depth 14 multipv 2 score cp -35 nodes 1000 pv e7e5 g1f3')
+    expect(r?.multipv).toBe(2)
+    expect(r?.eval).toEqual({ type: 'cp', value: -35 })
+    expect(r?.pv).toEqual(['e7e5', 'g1f3'])
+  })
+  it('leaves multipv undefined when absent', () => {
+    const r = parseInfoLine('info depth 10 score cp 12 pv e2e4')
+    expect(r?.multipv).toBeUndefined()
+  })
 })
