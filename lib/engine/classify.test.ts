@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { toWhiteCp, classifyMove, moverCpLoss } from './classify'
+import { toWhiteCp, classifyMove, moverCpLoss, stmScoreCp } from './classify'
 
 describe('toWhiteCp', () => {
   it('keeps white-to-move cp as-is', () => {
@@ -13,18 +13,37 @@ describe('toWhiteCp', () => {
   })
 })
 
-describe('classifyMove', () => {
-  it('good below inaccuracy band', () => {
-    expect(classifyMove(20)).toBe('good')
+describe('stmScoreCp', () => {
+  it('passes through cp', () => {
+    expect(stmScoreCp({ type: 'cp', value: 40 })).toBe(40)
   })
-  it('inaccuracy at 50cp', () => {
-    expect(classifyMove(50)).toBe('inaccuracy')
+  it('maps positive mate to a large positive number', () => {
+    expect(stmScoreCp({ type: 'mate', value: 3 })).toBe(100000 - 3)
+  })
+})
+
+describe('classifyMove', () => {
+  const base = { lossCp: 0, playedIsBest: false, gapToSecondBestCp: 0 }
+  it('blunder at 200cp', () => {
+    expect(classifyMove({ ...base, lossCp: 250 })).toBe('blunder')
   })
   it('mistake at 100cp', () => {
-    expect(classifyMove(120)).toBe('mistake')
+    expect(classifyMove({ ...base, lossCp: 120 })).toBe('mistake')
   })
-  it('blunder at 200cp', () => {
-    expect(classifyMove(250)).toBe('blunder')
+  it('inaccuracy at 50cp', () => {
+    expect(classifyMove({ ...base, lossCp: 50 })).toBe('inaccuracy')
+  })
+  it('great when best move with a large gap to second-best', () => {
+    expect(classifyMove({ lossCp: 0, playedIsBest: true, gapToSecondBestCp: 150 })).toBe('great')
+  })
+  it('best when top move but alternatives were also fine', () => {
+    expect(classifyMove({ lossCp: 0, playedIsBest: true, gapToSecondBestCp: 40 })).toBe('best')
+  })
+  it('excellent when near-best but not the engine pick', () => {
+    expect(classifyMove({ ...base, lossCp: 15 })).toBe('excellent')
+  })
+  it('good in the 20-50cp band when not the top move', () => {
+    expect(classifyMove({ ...base, lossCp: 35 })).toBe('good')
   })
 })
 

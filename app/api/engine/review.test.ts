@@ -18,7 +18,7 @@ describe('POST /api/engine/review', () => {
       .mockResolvedValueOnce({ move: 'd8h4', eval: { type: 'cp', value: 300 }, pv: [] })
     const res = await reviewPost(
       req({
-        positions: [{ fenBefore: 'fb', fenAfter: 'fa', mover: 'white' }],
+        positions: [{ fenBefore: 'fb', fenAfter: 'fa', mover: 'white', uci: 'e2e4' }],
       }),
     )
     const json = await res.json()

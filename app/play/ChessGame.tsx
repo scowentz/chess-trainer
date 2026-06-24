@@ -42,7 +42,7 @@ export function ChessGame() {
       const fenBefore = replay.fen()
       replay.move({ from: h.from, to: h.to, promotion: h.promotion ?? 'q' })
       const mover: Color = h.color === 'w' ? 'white' : 'black'
-      return { fenBefore, fenAfter: replay.fen(), mover }
+      return { fenBefore, fenAfter: replay.fen(), mover, uci: h.from + h.to + (h.promotion ?? '') }
     })
     const res = await fetch('/api/engine/review', {
       method: 'POST',
