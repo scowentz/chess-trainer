@@ -73,7 +73,12 @@ function bestMoveFacts(
   capture: boolean
   promo: boolean
 } {
-  const c = new Chess(fenBefore)
+  let c: Chess
+  try {
+    c = new Chess(fenBefore)
+  } catch {
+    return { san: null, fork: null, check: false, capture: false, promo: false }
+  }
   let move
   try {
     move = c.move(uciToMove(bestMove))
@@ -160,14 +165,21 @@ export function explain(input: ExplainInput): Explanation {
 
   const moverC: 'w' | 'b' = input.mover === 'white' ? 'w' : 'b'
 
-  const cAfter = new Chess(input.fenBefore)
-  let playedObj
+  let cAfter: Chess | null = null
   try {
-    playedObj = cAfter.move(uciToMove(input.playedMove))
+    cAfter = new Chess(input.fenBefore)
   } catch {
-    playedObj = null
+    cAfter = null
   }
-  if (playedObj) {
+  let playedObj = null
+  if (cAfter) {
+    try {
+      playedObj = cAfter.move(uciToMove(input.playedMove))
+    } catch {
+      playedObj = null
+    }
+  }
+  if (playedObj && cAfter) {
     facts.hung = worstHung(cAfter, moverC)
     if (
       (playedObj.flags.includes('c') || playedObj.flags.includes('e')) &&

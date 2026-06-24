@@ -3,6 +3,7 @@ import { getEngine } from '@/lib/engine'
 import { classifyMove, moverCpLoss, stmScoreCp } from '@/lib/engine/classify'
 import type { MoveClass } from '@/lib/engine/classify'
 import type { Color } from '@/lib/engine/types'
+import { explain } from '@/lib/engine/explain'
 
 interface Position {
   fenBefore: string
@@ -30,6 +31,7 @@ export async function POST(req: Request): Promise<Response> {
     lossCp: number
     classification: MoveClass
     bestMove: string
+    explanation: string
   }> = []
   try {
     for (let i = 0; i < positions.length; i++) {
@@ -58,12 +60,24 @@ export async function POST(req: Request): Promise<Response> {
       const playedIsBest = lines.length > 0 && lines[0].move.slice(0, 4) === pos.uci.slice(0, 4)
       const gapToSecondBestCp = gapCp(lines as { eval: { type: 'cp' | 'mate'; value: number } }[])
 
+      const classification = classifyMove({ lossCp, playedIsBest, gapToSecondBestCp })
+      const explanation = explain({
+        fenBefore: pos.fenBefore,
+        playedMove: pos.uci,
+        bestMove: lines.length ? lines[0].move : before.move,
+        evalBefore: before.eval,
+        evalAfter: after.eval,
+        moveClass: classification,
+        mover: pos.mover,
+      }).text
+
       reviews.push({
         ply: i + 1,
         mover: pos.mover,
         lossCp,
-        classification: classifyMove({ lossCp, playedIsBest, gapToSecondBestCp }),
+        classification,
         bestMove: before.move,
+        explanation,
       })
     }
   } catch {
