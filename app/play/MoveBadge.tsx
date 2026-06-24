@@ -13,20 +13,17 @@ export function MoveBadge({
   if (!moveClass) return null
   const meta = MOVE_CLASS_META[moveClass]
   return (
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+    <div
+      key={`${moveClass}-${explanation ?? ''}`}
+      className="animate-badge-in flex items-start gap-3 rounded-xl border border-line bg-surface-2/60 px-3.5 py-3"
+    >
       <span
-        style={{
-          background: meta.color,
-          color: 'white',
-          borderRadius: 6,
-          padding: '2px 8px',
-          fontWeight: 600,
-          fontSize: 14,
-        }}
+        className="mt-0.5 shrink-0 rounded-md px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-white shadow-sm"
+        style={{ backgroundColor: meta.color }}
       >
         {meta.label}
       </span>
-      {explanation && <span style={{ fontSize: 14, color: '#374151' }}>{explanation}</span>}
+      {explanation && <span className="text-sm leading-relaxed text-ink/90">{explanation}</span>}
     </div>
   )
 }

@@ -1,10 +1,11 @@
 'use client'
 
 import { useMemo, useRef, useState, useCallback } from 'react'
-import { Chess } from 'chess.js'
+import { Chess, type Move } from 'chess.js'
 import { BLUNDER_WARNING_CP } from '@/lib/engine/constants'
 import type { MoveClass } from '@/lib/engine/classify'
 import { gradeMove } from '@/lib/engine/grade'
+import { playSound, type SoundType } from '@/lib/sound/sounds'
 import type { Color, BestMoveResult } from '@/lib/engine/types'
 
 type Status = 'playing' | 'gameover'
@@ -15,13 +16,38 @@ interface PendingBlunder {
   lossCp: number
 }
 
+interface Square2 {
+  from: string
+  to: string
+}
+
 function resultOf(game: Chess): string {
   if (!game.isGameOver()) return '*'
   if (game.isCheckmate()) return game.turn() === 'w' ? '0-1' : '1-0'
   return '1/2-1/2'
 }
 
-export function useChessGame(opts: { playerColor: Color; skill: number; fetchImpl?: typeof fetch }) {
+/** Pick the sound that best matches what just happened on the board. */
+function soundForMove(game: Chess, mv: Move): SoundType {
+  if (game.isGameOver()) return 'gameEnd'
+  if (game.isCheck()) return 'check'
+  if (mv.flags.includes('k') || mv.flags.includes('q')) return 'castle'
+  if (mv.flags.includes('c') || mv.flags.includes('e')) return 'capture'
+  return 'move'
+}
+
+const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
+
+// A short, human-feeling pause so the engine doesn't reply instantly.
+const randomThinkMs = () => 280 + Math.random() * 360
+
+export function useChessGame(opts: {
+  playerColor: Color
+  skill: number
+  fetchImpl?: typeof fetch
+  /** Override the engine's "thinking" pause (ms). Mainly for tests. */
+  engineDelayMs?: number
+}) {
   const doFetch = useRef(opts.fetchImpl ?? fetch).current
   const gameRef = useRef(new Chess())
   const [fen, setFen] = useState(gameRef.current.fen())
@@ -34,6 +60,8 @@ export function useChessGame(opts: { playerColor: Color; skill: number; fetchImp
   const [lastMoveClass, setLastMoveClass] = useState<MoveClass | null>(null)
   const [lastMoveExplanation, setLastMoveExplanation] = useState<string | null>(null)
   const pendingFeedbackRef = useRef<{ moveClass: MoveClass; text: string } | null>(null)
+  const [thinking, setThinking] = useState(false)
+  const [lastMove, setLastMove] = useState<Square2 | null>(null)
 
   const engineColor: Color = opts.playerColor === 'white' ? 'black' : 'white'
 
@@ -63,17 +91,33 @@ export function useChessGame(opts: { playerColor: Color; skill: number; fetchImp
   const engineReply = useCallback(async () => {
     const game = gameRef.current
     if (game.isGameOver()) return
-    const res = await post('/api/engine/move', { fen: game.fen(), skill: opts.skill })
-    if (res.move && res.move !== '(none)') {
-      game.move({ from: res.move.slice(0, 2), to: res.move.slice(2, 4), promotion: res.move[4] ?? 'q' })
-      sync()
+    setThinking(true)
+    try {
+      // Fetch the move and wait out a human-feeling pause concurrently, so the
+      // engine never snaps back instantly even when the server is fast.
+      const [res] = await Promise.all([
+        post('/api/engine/move', { fen: game.fen(), skill: opts.skill }),
+        delay(opts.engineDelayMs ?? randomThinkMs()),
+      ])
+      if (res.move && res.move !== '(none)') {
+        const from = res.move.slice(0, 2)
+        const to = res.move.slice(2, 4)
+        const mv = game.move({ from, to, promotion: res.move[4] ?? 'q' })
+        setLastMove({ from, to })
+        playSound(soundForMove(game, mv))
+        sync()
+      }
+    } finally {
+      setThinking(false)
     }
-  }, [opts.skill, post, sync])
+  }, [opts.skill, opts.engineDelayMs, post, sync])
 
   const commit = useCallback(
     (from: string, to: string) => {
       const game = gameRef.current
-      game.move({ from, to, promotion: 'q' })
+      const mv = game.move({ from, to, promotion: 'q' })
+      setLastMove({ from, to })
+      playSound(soundForMove(game, mv))
       setHint({ piece: null, move: null })
       hintStage.current = 0
       const fb = pendingFeedbackRef.current
@@ -126,6 +170,7 @@ export function useChessGame(opts: { playerColor: Color; skill: number; fetchImp
         const blunder = { from, to, lossCp }
         pendingBlunderRef.current = blunder
         setPendingBlunder(blunder)
+        playSound('blunder')
         return false
       }
 
@@ -171,6 +216,8 @@ export function useChessGame(opts: { playerColor: Color; skill: number; fetchImp
       hint,
       lastMoveClass,
       lastMoveExplanation,
+      thinking,
+      lastMove,
       tryUserMove,
       confirmPendingMove,
       cancelPendingMove,
@@ -185,6 +232,8 @@ export function useChessGame(opts: { playerColor: Color; skill: number; fetchImp
       hint,
       lastMoveClass,
       lastMoveExplanation,
+      thinking,
+      lastMove,
       tryUserMove,
       confirmPendingMove,
       cancelPendingMove,

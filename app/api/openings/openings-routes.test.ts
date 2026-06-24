@@ -34,6 +34,13 @@ describe('POST /api/openings', () => {
     expect(h.saveBuiltRepertoire).toHaveBeenCalled()
   })
 
+  it('400 when catalogId is missing', async () => {
+    const res = await createPost(
+      new Request('http://test/api/openings', { method: 'POST', body: JSON.stringify({ color: 'white' }) }),
+    )
+    expect(res.status).toBe(400)
+  })
+
   it('400 on a bad color', async () => {
     const res = await createPost(
       new Request('http://test/api/openings', { method: 'POST', body: JSON.stringify({ catalogId: 'C50:Italian Game', color: 'green' }) }),

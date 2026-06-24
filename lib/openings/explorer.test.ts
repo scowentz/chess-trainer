@@ -23,8 +23,9 @@ describe('createExplorerClient', () => {
     const pos = await client.fetchPosition('startfen')
 
     expect(fetchImpl).toHaveBeenCalledTimes(1)
-    expect(String(fetchImpl.mock.calls[0][0])).toContain('explorer.lichess.ovh/masters')
-    expect(String(fetchImpl.mock.calls[0][0])).toContain('fen=startfen')
+    const [calledUrl] = fetchImpl.mock.calls[0] as unknown[]
+    expect(String(calledUrl)).toContain('explorer.lichess.ovh/masters')
+    expect(String(calledUrl)).toContain('fen=startfen')
     expect(pos.totalGames).toBe(100)
     expect(pos.opening?.name).toBe('Italian Game')
     expect(pos.moves.map((m) => m.uci)).toEqual(['e2e4', 'd2d4'])

@@ -5,6 +5,24 @@ import { DrillBoard } from './DrillBoard'
 import type { DrillNode } from '@/lib/openings/drill-session'
 import type { Color } from '@/lib/engine/types'
 
+type RawNode = {
+  fen: string
+  is_trainee_turn: number
+  acceptableUci: string[]
+  spine_uci: string | null
+  opponentReplies: { uci: string; weight: number }[]
+}
+
+function toNode(n: RawNode): DrillNode {
+  return {
+    fen: n.fen,
+    isTraineeTurn: n.is_trainee_turn === 1,
+    acceptableUci: n.acceptableUci,
+    spineUci: n.spine_uci,
+    opponentReplies: n.opponentReplies,
+  }
+}
+
 export default function DrillPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const [nodes, setNodes] = useState<DrillNode[] | null>(null)
@@ -17,7 +35,7 @@ export default function DrillPage({ params }: { params: Promise<{ id: string }> 
       const due = await fetch(`/api/openings/${id}/due`).then((r) => r.json())
       setColor(detail.repertoire.color as Color)
       setStartFen(detail.repertoire.start_fen)
-      setNodes(detail.nodes as DrillNode[])
+      setNodes((detail.nodes as RawNode[]).map(toNode))
       // Begin from the first due card's fen if available.
       if (due.nodes?.length) setStartFen(due.nodes[0].fen)
     }

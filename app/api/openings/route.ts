@@ -9,6 +9,9 @@ import type { Color } from '@/lib/engine/types'
 export async function POST(req: Request): Promise<Response> {
   const body = (await req.json().catch(() => ({}))) as { catalogId?: string; color?: Color; maxDepth?: number }
   const { catalogId, color, maxDepth } = body
+  if (!catalogId || typeof catalogId !== 'string') {
+    return NextResponse.json({ error: 'catalogId required' }, { status: 400 })
+  }
   if (color !== 'white' && color !== 'black') {
     return NextResponse.json({ error: 'color required' }, { status: 400 })
   }
