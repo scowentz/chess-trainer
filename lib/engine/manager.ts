@@ -110,8 +110,13 @@ export class EngineManager {
     this.running = false
   }
 
-  private go(fen: string, opts: { depth: number; skillOptions: [string, number][] }): Promise<BestMoveResult> {
+  private go(
+    fen: string,
+    opts: { depth: number; skillOptions: [string, number][]; multipv?: number },
+  ): Promise<BestMoveResult> {
     return this.enqueue(async () => {
+      const multipv = opts.multipv ?? 1
+      this.write(`setoption name MultiPV value ${multipv}`)
       for (const [name, value] of opts.skillOptions) {
         this.write(`setoption name ${name} value ${value}`)
       }
@@ -123,15 +128,29 @@ export class EngineManager {
         (l) => l.startsWith('bestmove'),
       )
 
+      // Keep the latest info per multipv index (engine emits increasing depths).
+      const byIndex = new Map<number, { eval: EngineEval; pv: string[] }>()
       let evalResult: EngineEval | null = null
       let pv: string[] = []
       for (const line of lines) {
         const info = parseInfoLine(line)
-        if (info?.eval) evalResult = info.eval
-        if (info?.pv) pv = info.pv
+        if (!info?.eval || !info.pv) continue
+        const idx = info.multipv ?? 1
+        byIndex.set(idx, { eval: info.eval, pv: info.pv })
+        if (idx === 1) {
+          evalResult = info.eval
+          pv = info.pv
+        }
       }
       const move = parseBestMove(lines[lines.length - 1]) ?? '(none)'
-      return { move, eval: evalResult, pv }
+
+      const result: BestMoveResult = { move, eval: evalResult, pv }
+      if (multipv > 1) {
+        result.lines = [...byIndex.entries()]
+          .sort((a, b) => a[0] - b[0])
+          .map(([, v]) => ({ move: v.pv[0], eval: v.eval }))
+      }
+      return result
     })
   }
 
@@ -139,8 +158,12 @@ export class EngineManager {
     return this.go(fen, { depth: opts.depth ?? 12, skillOptions: strengthToUciOptions(opts.skill) })
   }
 
-  evaluate(fen: string, opts: { depth?: number } = {}): Promise<BestMoveResult> {
-    return this.go(fen, { depth: opts.depth ?? 14, skillOptions: strengthToUciOptions(20) })
+  evaluate(fen: string, opts: { depth?: number; multipv?: number } = {}): Promise<BestMoveResult> {
+    return this.go(fen, {
+      depth: opts.depth ?? 14,
+      skillOptions: strengthToUciOptions(20),
+      multipv: opts.multipv,
+    })
   }
 
   async analyzeGame(fens: string[], opts: { depth?: number } = {}): Promise<BestMoveResult[]> {

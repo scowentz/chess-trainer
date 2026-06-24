@@ -42,4 +42,15 @@ d('EngineManager (real Stockfish)', () => {
     expect(results).toHaveLength(2)
     results.forEach((r) => expect(r.move).toMatch(/^[a-h][1-8]/))
   })
+
+  it('returns two ordered lines when multipv is 2', async () => {
+    const r = await engine.evaluate('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', {
+      depth: 10,
+      multipv: 2,
+    })
+    expect(r.lines).toBeDefined()
+    expect(r.lines!.length).toBeGreaterThanOrEqual(2)
+    expect(r.lines![0].move).toMatch(/^[a-h][1-8][a-h][1-8]/)
+    expect(r.lines![0].eval).not.toBeNull()
+  })
 })
