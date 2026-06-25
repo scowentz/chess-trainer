@@ -19,6 +19,7 @@ export default function NewOpeningPage() {
   const [color, setColor] = useState<Color>('white')
   const [depth, setDepth] = useState(12)
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
@@ -35,14 +36,21 @@ export default function NewOpeningPage() {
   async function create() {
     if (!selected) return
     setBusy(true)
+    setError(null)
     try {
       const res = await fetch('/api/openings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ catalogId: selected.id, color, maxDepth: depth }),
       })
-      const data = (await res.json()) as { id: number }
+      const data = (await res.json()) as { id?: number; error?: string }
+      if (!res.ok || !data.id) {
+        setError(data.error ?? 'Failed to build opening. Please try again.')
+        return
+      }
       router.push(`/openings/${data.id}`)
+    } catch {
+      setError('Network error. Please try again.')
     } finally {
       setBusy(false)
     }
@@ -106,6 +114,10 @@ export default function NewOpeningPage() {
       >
         {busy ? 'Building…' : 'Start learning'}
       </button>
+
+      {error && (
+        <p className="mt-4 text-sm text-red-300">{error}</p>
+      )}
     </main>
   )
 }

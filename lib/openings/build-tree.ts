@@ -49,17 +49,26 @@ export async function buildRepertoireTree(
   const nodes: TreeNode[] = []
   const queue: { fen: string; ply: number }[] = [{ fen: opts.startFen, ply: 0 }]
 
+  let first = true
   while (queue.length > 0 && nodes.length < nodeCap) {
     const { fen, ply } = queue.shift()!
     if (seen.has(fen)) continue
     seen.add(fen)
     if (ply >= opts.maxDepth) continue
 
+    if (!first) await new Promise((r) => setTimeout(r, 60))
+    first = false
+
     const game = new Chess(fen)
     const sideToMove: Color = game.turn() === 'w' ? 'white' : 'black'
     const isTraineeTurn = sideToMove === opts.color
 
-    const pos = await client.fetchPosition(fen)
+    let pos
+    try {
+      pos = await client.fetchPosition(fen)
+    } catch {
+      continue // skip positions where the explorer call fails
+    }
     const book = bookMoves(pos, { threshold: opts.threshold, cap: opts.replyCap })
     if (book.length === 0) continue // leaf — nothing to learn here
 

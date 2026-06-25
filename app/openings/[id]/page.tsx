@@ -18,8 +18,11 @@ export default function OpeningOverview({ params }: { params: Promise<{ id: stri
   useEffect(() => {
     void fetch(`/api/openings/${id}`)
       .then((r) => r.json())
-      .then((d) => { if (d.repertoire) setDetail(d as Detail) })
-  }, [id])
+      .then((d) => {
+        if (d.repertoire) setDetail(d as Detail)
+        else router.replace('/openings')
+      })
+  }, [id, router])
 
   async function rebuild() {
     setBusy(true)

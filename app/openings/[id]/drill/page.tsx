@@ -23,31 +23,42 @@ function toNode(n: RawNode): DrillNode {
   }
 }
 
-const STARTING_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
-
 export default function DrillPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const [nodes, setNodes] = useState<DrillNode[] | null>(null)
-  const [startFen, setStartFen] = useState<string>(STARTING_FEN)
+  const [startFen, setStartFen] = useState<string>('')
   const [color, setColor] = useState<Color>('white')
   const [noDue, setNoDue] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
-      const [detail, due] = await Promise.all([
-        fetch(`/api/openings/${id}`).then((r) => r.json()),
-        fetch(`/api/openings/${id}/due`).then((r) => r.json()),
-      ])
-      if (!detail.nodes) return
-      setColor(detail.repertoire.color as Color)
-      const allNodes = (detail.nodes as RawNode[]).map(toNode)
-      setNodes(allNodes)
-      if (due.nodes?.length) {
-        setStartFen(due.nodes[0].fen)
-      } else {
-        // No cards due — start from the beginning for free practice
-        setNoDue(true)
-        setStartFen(STARTING_FEN)
+      try {
+        const [detail, due] = await Promise.all([
+          fetch(`/api/openings/${id}`).then((r) => r.json()),
+          fetch(`/api/openings/${id}/due`).then((r) => r.json()),
+        ])
+        if (!detail.nodes) {
+          setLoadError('Opening not found.')
+          return
+        }
+        setColor(detail.repertoire.color as Color)
+        const allNodes = (detail.nodes as RawNode[]).map(toNode)
+        const firstTrainee = allNodes.find((n) => n.isTraineeTurn)
+        if (!firstTrainee) {
+          setLoadError('No positions found — try rebuilding this opening.')
+          return
+        }
+        setNodes(allNodes)
+        if (due.nodes?.length) {
+          setStartFen(due.nodes[0].fen as string)
+        } else {
+          // No cards due — free-practice from the first trainee position
+          setNoDue(true)
+          setStartFen(firstTrainee.fen)
+        }
+      } catch {
+        setLoadError('Failed to load drill. Please try again.')
       }
     }
     void load()
@@ -75,7 +86,9 @@ export default function DrillPage({ params }: { params: Promise<{ id: string }> 
       {!noDue && nodes && (
         <p className="mb-4 text-sm text-muted">Play the book moves from memory.</p>
       )}
-      {nodes ? (
+      {loadError ? (
+        <p className="text-sm text-red-300">{loadError}</p>
+      ) : nodes ? (
         <DrillBoard nodes={nodes} startFen={startFen} color={color} onReview={onReview} />
       ) : (
         <p className="text-muted">Loading…</p>

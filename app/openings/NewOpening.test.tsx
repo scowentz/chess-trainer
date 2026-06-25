@@ -13,10 +13,10 @@ beforeEach(() => {
     'fetch',
     vi.fn(async (url: string, init?: RequestInit) => {
       if (String(url).includes('/catalog')) {
-        return { json: async () => ({ results: [{ id: 'C50:Italian Game', eco: 'C50', name: 'Italian Game', pgn: '1. e4' }] }) } as Response
+        return { ok: true, json: async () => ({ results: [{ id: 'C50:Italian Game', eco: 'C50', name: 'Italian Game', pgn: '1. e4' }] }) } as Response
       }
       // POST /api/openings
-      return { json: async () => ({ id: 11, nodeCount: 5, cardCount: 3 }) } as Response
+      return { ok: true, json: async () => ({ id: 11, nodeCount: 5, cardCount: 3 }) } as Response
     }),
   )
 })
