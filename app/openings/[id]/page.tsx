@@ -18,7 +18,7 @@ export default function OpeningOverview({ params }: { params: Promise<{ id: stri
   useEffect(() => {
     void fetch(`/api/openings/${id}`)
       .then((r) => r.json())
-      .then(setDetail)
+      .then((d) => { if (d.repertoire) setDetail(d as Detail) })
   }, [id])
 
   async function rebuild() {

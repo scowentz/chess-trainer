@@ -38,6 +38,7 @@ export default function DrillPage({ params }: { params: Promise<{ id: string }> 
         fetch(`/api/openings/${id}`).then((r) => r.json()),
         fetch(`/api/openings/${id}/due`).then((r) => r.json()),
       ])
+      if (!detail.nodes) return
       setColor(detail.repertoire.color as Color)
       const allNodes = (detail.nodes as RawNode[]).map(toNode)
       setNodes(allNodes)
