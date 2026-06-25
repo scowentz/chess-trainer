@@ -10,6 +10,7 @@ export interface CatalogEntry {
 }
 
 export function parseCatalog(tsv: string): CatalogEntry[] {
+  const seen = new Set<string>()
   const entries: CatalogEntry[] = []
   for (const line of tsv.split('\n')) {
     const trimmed = line.trim()
@@ -17,7 +18,10 @@ export function parseCatalog(tsv: string): CatalogEntry[] {
     const [eco, name, pgn] = trimmed.split('\t')
     if (!eco || !name || !pgn) continue
     if (eco.toLowerCase() === 'eco') continue // stray header
-    entries.push({ id: `${eco}:${name}`, eco, name, pgn })
+    const id = `${eco}:${name}`
+    if (seen.has(id)) continue
+    seen.add(id)
+    entries.push({ id, eco, name, pgn })
   }
   return entries
 }
