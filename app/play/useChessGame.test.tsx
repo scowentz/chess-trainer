@@ -166,10 +166,15 @@ describe('useChessGame', () => {
       useChessGame({ playerColor: 'white', skill: 8, fetchImpl: fetchImpl as unknown as typeof fetch, engineDelayMs: 0 }),
     )
 
-    void act(async () => { await result.current.tryUserMove('e2', 'e4') })
+    // Await the act so React 19 flushes state updates. tryUserMove fires `void engineReply()`
+    // before returning, so setThinking(true) is called synchronously inside engineReply
+    // (before its first await) and is flushed by the time act resolves. The engine fetch
+    // remains blocked on movePromise, leaving thinking === true.
+    await act(async () => { await result.current.tryUserMove('e2', 'e4') })
     // engine reply is pending; thinking should be true, canTakeBack false
     await waitFor(() => expect(result.current.thinking).toBe(true))
     expect(result.current.canTakeBack).toBe(false)
-    resolveMove({ move: 'e7e5', eval: null, pv: [] })
+    // Unblock the engine reply to clean up pending promises
+    await act(async () => { resolveMove({ move: 'e7e5', eval: null, pv: [] }) })
   })
 })
