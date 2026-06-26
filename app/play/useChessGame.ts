@@ -6,7 +6,7 @@ import { BLUNDER_WARNING_CP } from '@/lib/engine/constants'
 import type { MoveClass } from '@/lib/engine/classify'
 import { gradeMove } from '@/lib/engine/grade'
 import { playSound, type SoundType } from '@/lib/sound/sounds'
-import type { Color, BestMoveResult } from '@/lib/engine/types'
+import type { Color, BestMoveResult, EngineEval } from '@/lib/engine/types'
 
 type Status = 'playing' | 'gameover'
 
@@ -41,6 +41,12 @@ const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 // A short, human-feeling pause so the engine doesn't reply instantly.
 const randomThinkMs = () => 280 + Math.random() * 360
 
+function normalizeToWhite(ev: EngineEval | null, sideToMove: Color): EngineEval | null {
+  if (!ev) return null
+  if (sideToMove === 'white') return ev
+  return { type: ev.type, value: -ev.value }
+}
+
 export function useChessGame(opts: {
   playerColor: Color
   skill: number
@@ -62,6 +68,7 @@ export function useChessGame(opts: {
   const pendingFeedbackRef = useRef<{ moveClass: MoveClass; text: string } | null>(null)
   const [thinking, setThinking] = useState(false)
   const [lastMove, setLastMove] = useState<Square2 | null>(null)
+  const [currentEval, setCurrentEval] = useState<EngineEval | null>(null)
 
   const engineColor: Color = opts.playerColor === 'white' ? 'black' : 'white'
 
@@ -106,6 +113,7 @@ export function useChessGame(opts: {
         setLastMove({ from, to })
         playSound(soundForMove(game, mv))
         sync()
+        setCurrentEval(normalizeToWhite(res.eval, engineColor))
       }
     } finally {
       setThinking(false)
@@ -168,6 +176,7 @@ export function useChessGame(opts: {
       })
 
       pendingFeedbackRef.current = { moveClass, text }
+      setCurrentEval(normalizeToWhite(afterEval.eval, engineColor))
 
       if (lossCp >= BLUNDER_WARNING_CP) {
         const blunder = { from, to, lossCp }
@@ -200,7 +209,20 @@ export function useChessGame(opts: {
     // Revert the optimistic board update so the position snaps back.
     setFen(gameRef.current.fen())
     setLastMove(null)
+    setCurrentEval(null)
   }, [])
+
+  const takeBack = useCallback(() => {
+    const game = gameRef.current
+    if (game.history().length < 2) return
+    game.undo()
+    game.undo()
+    setLastMove(null)
+    setLastMoveClass(null)
+    setLastMoveExplanation(null)
+    setCurrentEval(null)
+    sync()
+  }, [sync])
 
   const requestHint = useCallback(async () => {
     const res = await post('/api/engine/evaluate', { fen: gameRef.current.fen() })
@@ -214,22 +236,32 @@ export function useChessGame(opts: {
   }, [post])
 
   return useMemo(
-    () => ({
-      fen,
-      status,
-      result,
-      pendingBlunder,
-      hint,
-      lastMoveClass,
-      lastMoveExplanation,
-      thinking,
-      lastMove,
-      tryUserMove,
-      confirmPendingMove,
-      cancelPendingMove,
-      requestHint,
-      game: gameRef.current,
-    }),
+    () => {
+      const canTakeBack =
+        gameRef.current.history().length >= 2 &&
+        status === 'playing' &&
+        !thinking &&
+        pendingBlunder === null
+      return {
+        fen,
+        status,
+        result,
+        pendingBlunder,
+        hint,
+        lastMoveClass,
+        lastMoveExplanation,
+        thinking,
+        lastMove,
+        currentEval,
+        canTakeBack,
+        tryUserMove,
+        confirmPendingMove,
+        cancelPendingMove,
+        requestHint,
+        takeBack,
+        game: gameRef.current,
+      }
+    },
     [
       fen,
       status,
@@ -240,10 +272,12 @@ export function useChessGame(opts: {
       lastMoveExplanation,
       thinking,
       lastMove,
+      currentEval,
       tryUserMove,
       confirmPendingMove,
       cancelPendingMove,
       requestHint,
+      takeBack,
     ],
   )
 }
