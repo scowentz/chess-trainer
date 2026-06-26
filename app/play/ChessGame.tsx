@@ -10,7 +10,7 @@ import { StrengthSelector } from './StrengthSelector'
 import { ReviewPanel } from './ReviewPanel'
 import { MoveBadge } from './MoveBadge'
 import { isMuted, setMuted, primeAudio } from '@/lib/sound/sounds'
-import type { Color } from '@/lib/engine/types'
+import type { Color, EngineEval } from '@/lib/engine/types'
 
 interface Review {
   ply: number
@@ -100,6 +100,43 @@ function SoundToggle() {
         )}
       </svg>
     </button>
+  )
+}
+
+function AdvantageBar({ eval: ev }: { eval: EngineEval | null }) {
+  const whitePct =
+    ev === null
+      ? 50
+      : ev.type === 'mate'
+        ? ev.value > 0 ? 100 : 0
+        : 50 + (Math.max(-800, Math.min(800, ev.value)) / 800) * 50
+
+  let label = ''
+  if (ev !== null) {
+    if (ev.type === 'mate') {
+      label = `M${Math.abs(ev.value)}`
+    } else if (Math.abs(ev.value) >= 10) {
+      const abs = (Math.abs(ev.value) / 100).toFixed(1)
+      label = ev.value > 0 ? `+${abs}` : `-${abs}`
+    }
+  }
+
+  return (
+    <div className="relative w-2.5 overflow-hidden rounded bg-[#2a2419]" data-testid="advantage-bar">
+      <div
+        className="absolute bottom-0 left-0 right-0 bg-[#efd9b4] transition-[height] duration-500"
+        style={{ height: `${whitePct}%` }}
+      />
+      {label && (
+        <span
+          className={`pointer-events-none absolute left-1/2 -translate-x-1/2 text-[8px] font-bold leading-none ${
+            whitePct > 50 ? 'bottom-0.5 text-[#241c0c]' : 'top-0.5 text-[#efd9b4]'
+          }`}
+        >
+          {label}
+        </span>
+      )}
+    </div>
   )
 }
 
@@ -200,17 +237,22 @@ export function ChessGame() {
         <div className="flex flex-col gap-4">
           <div className="rounded-2xl border border-line-bright bg-gradient-to-b from-[#2a2419] to-[#211c14] p-3 shadow-2xl sm:p-4">
             <CapturedRow pieces={capturedByBlack} advantage={advantage < 0 ? -advantage : 0} />
-            <Chessboard
-              position={game.fen}
-              onPieceDrop={onPieceDrop}
-              boardOrientation={playerColor}
-              arePiecesDraggable={game.status === 'playing'}
-              animationDuration={250}
-              customSquareStyles={lastMoveStyles}
-              customBoardStyle={{ borderRadius: '6px', boxShadow: '0 10px 30px -10px rgba(0,0,0,0.7)' }}
-              customDarkSquareStyle={{ backgroundColor: '#9a7a4d' }}
-              customLightSquareStyle={{ backgroundColor: '#efd9b4' }}
-            />
+            <div className="flex items-stretch gap-2">
+              <AdvantageBar eval={game.currentEval} />
+              <div className="min-w-0 flex-1">
+                <Chessboard
+                  position={game.fen}
+                  onPieceDrop={onPieceDrop}
+                  boardOrientation={playerColor}
+                  arePiecesDraggable={game.status === 'playing'}
+                  animationDuration={250}
+                  customSquareStyles={lastMoveStyles}
+                  customBoardStyle={{ borderRadius: '6px', boxShadow: '0 10px 30px -10px rgba(0,0,0,0.7)' }}
+                  customDarkSquareStyle={{ backgroundColor: '#9a7a4d' }}
+                  customLightSquareStyle={{ backgroundColor: '#efd9b4' }}
+                />
+              </div>
+            </div>
             <CapturedRow pieces={capturedByWhite} advantage={advantage > 0 ? advantage : 0} />
           </div>
           <StatusBar status={game.status} thinking={game.thinking} playerTurn={playerTurn} result={game.result} />
@@ -221,6 +263,29 @@ export function ChessGame() {
           <StrengthSelector skill={skill} onChange={setSkill} />
           <div className="h-px bg-line" />
           <HintButton hint={game.hint} onHint={game.requestHint} />
+
+          {game.canTakeBack && (
+            <button
+              type="button"
+              onClick={game.takeBack}
+              className="group inline-flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-line bg-surface-2/70 px-3.5 py-2 text-sm font-semibold text-ink transition-colors duration-200 hover:border-brass/60 hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brass/60"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                className="h-4 w-4 text-brass transition-colors duration-200 group-hover:text-brass-bright"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.8}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 7v6h6" />
+                <path d="M3 13C5.5 6 15 3 21 9" />
+              </svg>
+              Take Back
+            </button>
+          )}
 
           {game.status === 'playing' && game.lastMoveClass && (
             <MoveBadge moveClass={game.lastMoveClass} explanation={game.lastMoveExplanation} />
