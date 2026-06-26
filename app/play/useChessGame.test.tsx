@@ -103,4 +103,73 @@ describe('useChessGame', () => {
     })
     expect(result.current.hint.move).toBe('g1f3')
   })
+
+  it('sets currentEval after engine replies', async () => {
+    const fetchImpl = makeFetch({
+      '/api/engine/evaluate': { move: 'e2e4', eval: { type: 'cp', value: 20 }, pv: [] },
+      '/api/engine/move': { move: 'e7e5', eval: { type: 'cp', value: 10 }, pv: [] },
+    })
+    const { result } = renderHook(() =>
+      useChessGame({ playerColor: 'white', skill: 8, fetchImpl: fetchImpl as unknown as typeof fetch, engineDelayMs: 0 }),
+    )
+
+    await act(async () => {
+      await result.current.tryUserMove('e2', 'e4')
+    })
+    await waitFor(() => expect(result.current.currentEval).not.toBeNull())
+    expect(result.current.currentEval?.type).toBe('cp')
+  })
+
+  it('canTakeBack is false at game start', () => {
+    const fetchImpl = makeFetch({
+      '/api/engine/evaluate': { move: 'e2e4', eval: { type: 'cp', value: 20 }, pv: [] },
+      '/api/engine/move': { move: 'e7e5', eval: null, pv: [] },
+    })
+    const { result } = renderHook(() =>
+      useChessGame({ playerColor: 'white', skill: 8, fetchImpl: fetchImpl as unknown as typeof fetch }),
+    )
+    expect(result.current.canTakeBack).toBe(false)
+  })
+
+  it('takeBack restores position to before the last player move', async () => {
+    const fetchImpl = makeFetch({
+      '/api/engine/evaluate': { move: 'e2e4', eval: { type: 'cp', value: 20 }, pv: [] },
+      '/api/engine/move': { move: 'e7e5', eval: { type: 'cp', value: 10 }, pv: [] },
+    })
+    const { result } = renderHook(() =>
+      useChessGame({ playerColor: 'white', skill: 8, fetchImpl: fetchImpl as unknown as typeof fetch, engineDelayMs: 0 }),
+    )
+    const startFen = result.current.fen
+
+    await act(async () => {
+      await result.current.tryUserMove('e2', 'e4')
+    })
+    await waitFor(() => expect(result.current.canTakeBack).toBe(true))
+
+    act(() => { result.current.takeBack() })
+
+    expect(result.current.fen).toBe(startFen)
+    expect(result.current.currentEval).toBeNull()
+    expect(result.current.lastMoveClass).toBeNull()
+    expect(result.current.canTakeBack).toBe(false)
+  })
+
+  it('canTakeBack is false while engine is thinking', async () => {
+    let resolveMove!: (v: unknown) => void
+    const movePromise = new Promise((res) => { resolveMove = res })
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (String(url).includes('/api/engine/evaluate'))
+        return { ok: true, json: async () => ({ move: 'e2e4', eval: { type: 'cp', value: 20 }, pv: [] }) } as Response
+      return { ok: true, json: () => movePromise } as unknown as Response
+    })
+    const { result } = renderHook(() =>
+      useChessGame({ playerColor: 'white', skill: 8, fetchImpl: fetchImpl as unknown as typeof fetch, engineDelayMs: 0 }),
+    )
+
+    void act(async () => { await result.current.tryUserMove('e2', 'e4') })
+    // engine reply is pending; thinking should be true, canTakeBack false
+    await waitFor(() => expect(result.current.thinking).toBe(true))
+    expect(result.current.canTakeBack).toBe(false)
+    resolveMove({ move: 'e7e5', eval: null, pv: [] })
+  })
 })
