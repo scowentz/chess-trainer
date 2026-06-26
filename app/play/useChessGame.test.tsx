@@ -154,6 +154,27 @@ describe('useChessGame', () => {
     expect(result.current.canTakeBack).toBe(false)
   })
 
+  it('currentEval is white-relative (negated for black engine)', async () => {
+    // Engine plays black (playerColor='white'), engine/move returns eval from black's POV
+    // Expect currentEval to be negated to white's POV
+    const fetchImpl = makeFetch({
+      '/api/engine/evaluate': { move: 'e2e4', eval: { type: 'cp', value: 20 }, pv: [] },
+      '/api/engine/move': { move: 'e7e5', eval: { type: 'cp', value: -30 }, pv: [] },
+    })
+    const { result } = renderHook(() =>
+      useChessGame({ playerColor: 'white', skill: 8, fetchImpl: fetchImpl as unknown as typeof fetch, engineDelayMs: 0 }),
+    )
+
+    await act(async () => {
+      await result.current.tryUserMove('e2', 'e4')
+    })
+    // Engine (black) returned eval: -30 (black perspective); white-relative = +30
+    // Wait specifically for the engine-reply eval (+30), not the intermediate user-move eval.
+    await waitFor(() => expect(result.current.currentEval?.value).toBe(30))
+    expect(result.current.currentEval?.type).toBe('cp')
+    expect(result.current.currentEval?.value).toBe(30)
+  })
+
   it('canTakeBack is false while engine is thinking', async () => {
     let resolveMove!: (v: unknown) => void
     const movePromise = new Promise((res) => { resolveMove = res })

@@ -209,6 +209,7 @@ export function useChessGame(opts: {
     // Revert the optimistic board update so the position snaps back.
     setFen(gameRef.current.fen())
     setLastMove(null)
+    setCurrentEval(null)
   }, [])
 
   const takeBack = useCallback(() => {
